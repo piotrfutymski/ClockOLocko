@@ -4,148 +4,141 @@ import matplotlib.pyplot as plt
 from matplotlib.pyplot import imshow
 from skimage.transform import resize
 from skimage.transform import hough_line
+from skimage import morphology
 import numpy as np
 from numpy import array
 import scipy
 import math
-from PIL import Image, ImageDraw
 
-def dfs(img, stack, lightpiexels):
-    maxX = len(img[0])
-    maxY = len(img)
+class point:
+    def __init__(self, x=0, y=0):
+        self.x = x
+        self.y = y
+    def distance(self ,other):
+        a=self.x - other.x
+        b=self.y - other.y
+        return math.sqrt(a*a+b*b)
+class shape:
+    def __init__(self):
+        self.points=[]
+        self.NW=point(1000000, 1000000)
+        self.center=point()
+        self.SE=point(-1,-1)
+        self.x_val=0;
+        self.y_val=0;
+        self.sq_factor=0
+    def contains(self, p):
+        if(self.NW.x < p.x and self.NW.y < p.y and self.SE.x > p.x and self.SE.y > p.y):
+            return True
+        return False
+    def overlap(self, other):
+        if(self.SE.x < other.NW.x or self.NW.x > other.SE.x or self.NW.y > other.SE.y or self.SE.y < other.NW.y):
+            return False
+        return True
 
-    while(len(stack) > 0):
-        P = stack.pop()
-        img[P[1]][P[0]] = 0
-        lightpiexels.append(P)
-        if(P[0] - 1 > 0):
-            if(img[P[1]][P[0]-1] >= 0.5):
-                stack.append([P[0]-1,P[1]])         
-        if(P[1] - 1 > 0):
-            if(img[P[1]-1][P[0]] >= 0.5):
-                stack.append([P[0],P[1]-1])
-        if(P[0] + 1 < maxX):
-            if(img[P[1]][P[0]+1] >= 0.5):
-                stack.append([P[0]+1,P[1]])
-        if(P[1] + 1 < maxY):
-            if(img[P[1]+1][P[0]] >= 0.5):
-                stack.append([P[0],P[1]+1])
-        if(P[0] - 1 > 0 and P[1] - 1 > 0):
-            if(img[P[1]-1][P[0]-1] >= 0.5):
-                stack.append([P[0]-1,P[1]-1])         
-        if(P[0] - 1 > 0 and P[1] + 1 < maxY):
-            if(img[P[1]+1][P[0]-1] >= 0.5):
-                stack.append([P[0]-1,P[1]+1]) 
-        if(P[0] + 1 < maxX and P[1] - 1 > 0):
-            if(img[P[1]-1][P[0]+1] >= 0.5):
-                stack.append([P[0]+1,P[1]-1])
-        if(P[0] + 1 < maxX and P[1] + 1 < maxY):
-            if(img[P[1]+1][P[0]+1] >= 0.5):
-                stack.append([P[0]+1,P[1]+1])        
+def find_consistent_shapes(img):
+    SE = point(len(img[0]), len(img))
+    shapes=[]
+    for y in range(SE.y):
+        for x in range(SE.x):
+            stack = [point(x, y)]
+            s = shape()
+            while(len(stack) > 0):
+                p = stack.pop()
+                if(p.x < 0 or p.y < 0 or p.x >= SE.x or p.y >= SE.y):
+                    continue
+                if(img[p.y][p.x] == 1):
+                    img[p.y][p.x] = 0
+                    s.points.append(p)
+                    if(p.x < s.NW.x):
+                        s.NW.x = p.x
+                    if(p.y < s.NW.y):
+                        s.NW.y = p.y
+                    if(p.x > s.SE.x):
+                        s.SE.x = p.x
+                    if(p.y > s.SE.y):
+                        s.SE.y = p.y
+                    stack.append(point(p.x, p.y-1))
+                    stack.append(point(p.x, p.y+1))
+                    stack.append(point(p.x-1, p.y))
+                    stack.append(point(p.x-1, p.y-1))
+                    stack.append(point(p.x-1, p.y+1))
+                    stack.append(point(p.x+1, p.y))
+                    stack.append(point(p.x+1, p.y-1))
+                    stack.append(point(p.x+1, p.y+1))
+            if(len(s.points) > 1):
+                s.center.x = (s.NW.x + s.SE.x)/2
+                s.center.y = (s.NW.y + s.SE.y)/2
+                s.x_val=s.SE.x-s.NW.x
+                s.y_val=s.SE.y-s.NW.y
+                if(s.x_val * s.y_val < 1):
+                    continue
+                if s.x_val > s.y_val:
+                    s.sq_factor = s.y_val/s.x_val
+                else:
+                    s.sq_factor = s.x_val/s.y_val
+                shapes.append(s)
+    return shapes
 
+def find_frame(shapes):
+    min_badness=1.0;
+    result=shape()
+    for i in range(len(shapes)):
+        pivot = shapes[i]
+        insiders = [shapes[j] for j in range(len(shapes)) if i != j and pivot.contains(shapes[j].NW) and pivot.contains(shapes[j].SE)]
+        if(len(insiders) == 0):
+            continue
+        r = (pivot.x_val + pivot.y_val)/4
+        badness=0
+        for hour in range(12):
+            crit_point = point(pivot.center.x+math.cos(hour*math.pi/6)*r, pivot.center.y+math.sin(hour*math.pi/6)*r)
+            badness = badness + min([crit_point.distance(insider.center) for insider in insiders])/r
+        badness=badness/12
+        if(badness < min_badness):
+            min_badness = badness
+            result = pivot
+    return result
 
+def find_tips(shapes, frame):
+    tips = shape()
+    for s in shapes:
+        if s.contains(frame.center) and frame.contains(s.NW) and frame.contains(s.SE):
+            tips.points.extend(s.points)
+    return tips
+    
 
-
-
-def smallObjects(img):
-    res = []
-    maxX = len(img[0])
-    maxY = len(img)
-    i = 0
-    pointerX = i % maxX
-    pointerY = i // maxX
-    while(i < maxX * maxY):
-        while(i < maxX * maxY and img[pointerY][pointerX] < 0.5):
-            pointerX = i % maxX
-            pointerY = i // maxX
-            i = i+1
-        lightpiexels = []
-        stack = []
-        stack.append([pointerX, pointerY])
-        dfs(img, stack, lightpiexels)
-        Xs = np.transpose(lightpiexels)[0]
-        Ys = np.transpose(lightpiexels)[1]
-
-        if(len(Xs) > 10 * len(img) or max(Xs)-min(Xs) > maxX / 10 or max(Ys)-min(Ys) > maxY / 10):
-           continue
-        res.append([np.median(Xs), np.median(Ys)])
-    return res
-
-def minimalizationPoint(points, sizeX, sizeY, step = 10):
-    di = {}
-
-    Xs = np.transpose(points)[0]
-    Ys = np.transpose(points)[1]
-
-    XM = np.median(Xs)
-    YM = np.median(Ys)
-
-    points = sorted(points, key= lambda ele: (ele[0]-XM)**2 + (ele[1]-YM)**2)
-    points = points[:(len(points)*9)//10]
-
-    for radius in range(int(min(sizeX, sizeY)/8), int(min(sizeX, sizeY)/2), step):
-        for i in range(0, sizeX, step):
-            for j in range(0, sizeY, step):
-                v = 0
-                for p in points:
-                    odl = math.sqrt((i-p[0])*(i-p[0]) + (j-p[1])*(j-p[1]))
-                    if(odl > radius*0.2 and odl < radius):
-                        v+=1
-                if(v > 0.7 * len(points)):        
-                    di[v/radius**2] = (np.array([i,j]), radius)
-
-    di = sorted(di.items(), key = lambda ele: ele[0], reverse=True)
-    return di[0][1]
-
+def paint_shape(img, s, val=(1.0,0,0)):
+    for p in s.points:
+        img[p.y][p.x] = val
+        
+def mark_shape(img, s, val=(1.0,0,0)):
+    for y in (s.NW.y, s.SE.y):
+        for x in range(s.NW.x, s.SE.x):
+            img[y][x]=val
+    for x in (s.NW.x, s.SE.x):
+        for y in range(s.NW.y, s.SE.y):
+            img[y][x]=val
 
 imgs=[]
 for i in range(1,15):
     imgs.append(io.imread('data/' + str(i) + '.jpg', as_gray=True))
 
 for i in range(len(imgs)):
-    imgs[i]=feature.canny(imgs[i], 1, low_threshold = 0.25, high_threshold= 0.75)
-
-    fig = plt.figure(figsize=(16,16))
-    
-    imgs[i]=[[float(pixel) for pixel in line] for line in imgs[i]]
-    #imgs[i]=scipy.ndimage.gaussian_filter(imgs[i], sigma=1)
-    points = smallObjects(imgs[i])
-
-
-
-    #for P in points:
-    #    imgs[i][int(P[1])][int(P[0])] = 1.0
-    
-    pos, r = minimalizationPoint(points, len(imgs[0][0]), len(imgs[0]), 20)
-    xx, yy = np.mgrid[:len(imgs[0][0]), :len(imgs[0])]
-
-    imgs[i] = io.imread('data/' + str(i+1) + '.jpg', as_gray=True)
-    imgs[i]=feature.canny(imgs[i], 1, low_threshold = 0.25, high_threshold= 0.75)
-    imgs[i]=[[float(pixel) for pixel in line] for line in imgs[i]]
-    #imgs[i]=scipy.ndimage.gaussian_filter(imgs[i], sigma=1)
-
-    circle = (xx - pos[0]) ** 2 + (yy - pos[1]) ** 2
-
-    for a in range(len(imgs[0][0])):
-        for b in range(len(imgs[0])):
-            if(circle[a][b] < (r/4)**2 and circle[a][b] > (r/5)**2):
-                imgs[i][b][a] = 1.0
-
-    for a in range(pos[0],pos[0]+20):
-        for b in range(pos[1], pos[1]+20):
-            imgs[i][b][a] = 0
-  
-    imshow(imgs[i], cmap='gray')
-    fig.savefig(str(i)+".png")
-
-
-
-
-
-
-
-
-#h, theta, d = hough_line(imgs[i])
-
-#imgs[i]=scipy.ndimage.gaussian_filter(imgs[i], sigma=5)
-#res=[[ lol(imgs[i], (x,y)) for x in range(0,len(imgs[i][0]),5)] for y in range(0,len(imgs[i]),5)]
+    imgs[i]=feature.canny(imgs[i], 1, low_threshold = 0.1, high_threshold= 0.3)
+    fig = plt.figure(figsize=(len(imgs[i][0])/100,len(imgs[i])/100))
+    #imgs[i]=morphology.binary_dilation(imgs[i])
+    #imgs[i]=morphology.binary_erosion(imgs[i])
+    shapes = find_consistent_shapes(imgs[i].copy())
+    #do rgb
+    imgs[i] = [[(float(v),float(v),float(v)) for v in line]for line in imgs[i]]
+    #for s in shapes:
+        #mark_shape(imgs[i], s)
+    frame = find_frame(shapes)
+    mark_shape(imgs[i], frame)
+    tips = find_tips(shapes, frame)
+    paint_shape(imgs[i], tips)
+    #imshow(np.log(1 + h),
+    #         extent=[np.rad2deg(theta[-1]), np.rad2deg(theta[0]), d[-1], d[0]],
+    #         cmap='gray', aspect=1/1.5)
+    imshow(imgs[i])
+    fig.show()
