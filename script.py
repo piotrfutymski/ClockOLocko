@@ -9,6 +9,12 @@ import numpy as np
 from numpy import array
 import scipy
 import math
+import copy
+
+def paint_pixel(img, x, y, val):
+    SE = point(len(img[0]), len(img))
+    if(x - 1 >=0 and y-1 >=0 and x+1 < SE.x and y+1 < SE.y):
+        img[y][x] = val
 
 class point:
     def __init__(self, x=0, y=0):
@@ -20,18 +26,10 @@ class point:
         b=self.y - other.y
         return math.sqrt(a*a+b*b)
 
-    def paint(self, img, val=(0,1.0,0)):
-        self.x = int(self.x)
-        self.y = int(self.y)
-        img[self.y][self.x] = val
-        if(self.x - 1 >= 0 and self.y-1 >= 0):
-            img[self.y-1][self.x-1] = val
-        if(self.x - 1 >= 0 and self.y+1 < len(img)):
-            img[self.y-1][self.x+1] = val
-        if(self.x + 1 < len(img[0]) and self.y-1 >= 0):
-            img[self.y+1][self.x-1] = val
-        if(self.x + 1 < len(img[0]) and self.y+1 < len(img)):
-            img[self.y+1][self.x+1] = val
+    def paint(self, img, val=(0,1.0,0), master = 1):
+        for offx in (-1,0,1):
+            for offy in (-1,0,1):
+                paint_pixel(img, int(self.x)+offx, int(self.y)+offy, val)
 
 class rectangle:
     def __init__(self):
@@ -59,12 +57,12 @@ class rectangle:
 
 
     def paint(self, img, val=(1.0,0,0)):
-        for y in (int(self.NW.y), int(self.SE.y)):
+        for y in (int(self.NW.y), int(self.NW.y)-1, int(self.SE.y), int(self.SE.y)-1):
             for x in range(int(self.NW.x), int(self.SE.x)):
-                img[y][x]=val
-        for x in (int(self.NW.x), int(self.SE.x)):
+                paint_pixel(img, x, y, val)
+        for x in (int(self.NW.x), int(self.NW.x)-1, int(self.SE.x), int(self.SE.x)-1):
             for y in range(int(self.NW.y), int(self.SE.y)):
-                img[y][x]=val
+                paint_pixel(img, x, y, val)
 
 
 class shape:
@@ -112,6 +110,7 @@ class shape:
 
 
 def find_consistent_shapes(img):
+    img = copy.deepcopy(img)
     SE = point(len(img[0]), len(img))
     shapes=[]
     for y in range(SE.y):
@@ -160,7 +159,7 @@ def makeSquare(s, SE):
     s.square = True    
 
 
-def find_frame(shapes):
+def find_clock(shapes):
     min_badness=1.0
     result=shape()
     for i in range(len(shapes)):
@@ -176,12 +175,14 @@ def find_frame(shapes):
         badness=badness/12
         if(badness < min_badness):
             min_badness = badness
-            result = pivot
+            result = copy.deepcopy(pivot)
+    if(len(result.points) == 0):
+        raise Exception('Nie znaleziono tarczy!')
     return result
 
 def find_tips(shapes, clock):
     tips = shape()
-    a = clock.frame
+    a = copy.deepcopy(clock.frame)
     a.resize(0.2)
     for s in shapes:
         if s.any_in(a):        
@@ -190,13 +191,12 @@ def find_tips(shapes, clock):
     if(len(tips.points) > 0):       
         tips.update()
     else:
-        print("GG")
-    a.resize(5)
+        raise Exception('Nie znaleziono wskazowek!')
     return tips
     
 
 def find_center(tips, clock):
-    a = clock.frame
+    a = copy.deepcopy(clock.frame)
     a.resize(0.3)
     Xup = False
     Xdw = False
@@ -217,7 +217,6 @@ def find_center(tips, clock):
                 Yup = True
             else:
                 Ydw = True
-    a.resize(10/3)
     if(Xup and Xdw and Yup and Ydw):
         return clock.frame.center
     else:
@@ -279,10 +278,6 @@ def find_angles(tips, C, A, step = 3):
     return angles[0:min(len(angles),5)]
 
 def get_hour(angles):
-    if(len(angles) == 1):
-        print("GG")
-        return 0,0
-    
     di = []
 
     for i in range(len(angles)):
@@ -321,26 +316,28 @@ for i in range(1,19):
     imgs.append(io.imread('data/' + str(i) + '.jpg', as_gray=True))
 
 for i in range(len(imgs)):
-
+    print('ZEGAR ' + str(i))
     imgs[i]=feature.canny(imgs[i], 1, low_threshold = 0.15, high_threshold= 0.3)
     fig = plt.figure(figsize=(len(imgs[i][0])/100,len(imgs[i])/100))
 
-    shapes = find_consistent_shapes(imgs[i].copy())
+    shapes = find_consistent_shapes(imgs[i])
     #do rgb
     imgs[i] = [[(float(v),float(v),float(v)) for v in line]for line in imgs[i]]
-
-    clock = find_frame(shapes)
-    tips = find_tips(shapes, clock)
+    try:
+        clock = find_clock(shapes)
+        tips = find_tips(shapes, clock)
+    except Exception as e:
+        print(e)
+        continue
     center = find_center(tips, clock)
 
     angles =  find_angles(tips, center, clock.frame.x_val)
     for angle in angles:
        print(str(i) + ":\t" + str(angle))
-    #print("\n")
 
     hour, mintues = get_hour(angles)
-    print(str(i) + ":\t" + str(hour)+":"+str(mintues))
-    print("\n")
+    print(str(hour)+":"+str(mintues))
+    print()
     
     clock.frame.paint(imgs[i])
     tips.paint(imgs[i])
