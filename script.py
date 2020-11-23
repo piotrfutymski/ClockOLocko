@@ -120,7 +120,7 @@ def mark_shape(img, s, val=(1.0,0,0)):
             img[y][x]=val
 
 imgs=[]
-for i in range(1,15):
+for i in range(1,19):
     imgs.append(io.imread('data/' + str(i) + '.jpg', as_gray=True))
 
 for i in range(len(imgs)):
@@ -141,4 +141,4 @@ for i in range(len(imgs)):
     #         extent=[np.rad2deg(theta[-1]), np.rad2deg(theta[0]), d[-1], d[0]],
     #         cmap='gray', aspect=1/1.5)
     imshow(imgs[i])
-    fig.show()
+    fig.savefig("result/" + str(i)+".png")
