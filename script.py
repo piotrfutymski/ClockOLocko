@@ -124,7 +124,7 @@ for i in range(1,19):
     imgs.append(io.imread('data/' + str(i) + '.jpg', as_gray=True))
 
 for i in range(len(imgs)):
-    imgs[i]=feature.canny(imgs[i], 1, low_threshold = 0.1, high_threshold= 0.3)
+    imgs[i]=feature.canny(imgs[i], 1, low_threshold = 0.15, high_threshold= 0.4)
     fig = plt.figure(figsize=(len(imgs[i][0])/100,len(imgs[i])/100))
     #imgs[i]=morphology.binary_dilation(imgs[i])
     #imgs[i]=morphology.binary_erosion(imgs[i])
