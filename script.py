@@ -164,7 +164,7 @@ def find_clock(shapes):
     result=shape()
     for i in range(len(shapes)):
         pivot = shapes[i]
-        insiders = [shapes[j] for j in range(len(shapes)) if i != j and pivot.frame.contains(shapes[j].frame.NW) and pivot.frame.contains(shapes[j].frame.SE)]
+        insiders = [shapes[j] for j in range(len(shapes)) if i != j and pivot.frame.contains(shapes[j].frame.NW) and pivot.frame.contains(shapes[j].frame.SE) and len(shapes[j].points) > pivot.frame.x_val/10]
         if(len(insiders) == 0):
             continue
         r = (pivot.frame.x_val + pivot.frame.y_val)/4
@@ -183,7 +183,7 @@ def find_clock(shapes):
 def find_tips(shapes, clock):
     tips = shape()
     a = copy.deepcopy(clock.frame)
-    a.resize(0.2)
+    a.resize(0.25)
     for s in shapes:
         if s.any_in(a):        
             tips.points.extend(s.points)
@@ -197,7 +197,7 @@ def find_tips(shapes, clock):
 
 def find_center(tips, clock):
     region = copy.deepcopy(clock.frame)
-    region.resize(0.3)
+    region.resize(0.35)
 
     tips_center = [t for t in tips.points if region.contains(t)]
     
@@ -263,7 +263,9 @@ def find_angles(tips, C, A, step = 3):
         for tt in range(0, 360, step):
             theta = tt *math.pi/180
             beta = abs(theta - alfa_cp(C, t))
-            if(beta < math.pi/2 and C.distance(t) > A*0.2 and C.distance(t)*math.sin(beta) < A/40):
+            odl = C.distance(t)
+            odch = abs(odl*math.sin(beta))          
+            if(beta < math.pi/2 and ((odl > A*0.2 and odl <= A*0.5 and odch < A/40) or (odl > A*0.5 and odch < A/80))):
                 di[tt] += 1
 
     last = -1
@@ -284,36 +286,47 @@ def find_angles(tips, C, A, step = 3):
         angles[i] = angles[i]/30
     return angles[0:min(len(angles),5)]
 
+
+def existsD(di, h ,m):
+    for el in di:
+        if(el[0] == h and el[1] == m):
+            return el[2]*0.85
+    return -1
+
 def get_hour(angles):
     di = []
 
     for i in range(len(angles)):
         prM = angles[i]/12
-        n = -1
-        h = 100000
         for j in range(len(angles)):
             if(i == j):
                 continue
-            od = (angles[j] - int(angles[j]) - prM)*(j+1)**5
-            if(abs(od) < abs(h) ):
-                h = od
-                n = j
-        di.append((n, i, h/(n+1)**5))
-    
-    di.sort(key= lambda el: el[0]+el[1])
-    hours = int(angles[di[0][0]])
-    #print(di[0][2])
-    if( di[0][2] > 0.5):
-        hours = hours + 1
-    elif(di[0][2] < -0.5):
-        hours = hours - 1
-    
-    if(hours == -1):
-        hours = 11
-    if(hours == 0):
-        hours = 12
+            od = (angles[j] - int(angles[j]) - prM)
+            k = 0.5 - abs(abs(od) - 0.5)
+            k = 3 * k + i*1.24 + j*0.76
+            hours = int(angles[j])
+            if(od > 0.5):
+                hours = hours + 1
+            elif(od < -0.5):
+                hours = hours - 1
+            if(hours == -1):
+                hours = 11
+            if(hours == 0):
+                hours = 12
+            minutes = int(angles[i]*5)
 
-    return hours, int(angles[di[0][1]]*5)
+            vv = existsD(di, hours, minutes)
+            if(vv > 0):
+                di.append((hours, minutes, vv))
+            else:
+                di.append((hours, minutes, k))
+    
+    di.sort(key= lambda el: el[2])
+
+    if(len(di) == 0):
+        raise Exception('Nie znaleziono kątów wskazówek!')
+
+    return di[0][0], di[0][1]
         
 
 
@@ -322,9 +335,13 @@ imgs=[]
 for i in range(1,19):
     imgs.append(io.imread('data/' + str(i) + '.jpg', as_gray=True))
 
+
+
+
 for i in range(len(imgs)):
     print('ZEGAR ' + str(i))
-    imgs[i]=feature.canny(imgs[i], 1, low_threshold = 0.15, high_threshold= 0.3)
+    imgs[i]=feature.canny(imgs[i], 1, low_threshold = 0.18, high_threshold= 0.4)
+
     fig = plt.figure(figsize=(len(imgs[i][0])/100,len(imgs[i])/100))
 
     shapes = find_consistent_shapes(imgs[i])
@@ -337,14 +354,15 @@ for i in range(len(imgs)):
         print(e)
         continue
     center = find_center(tips, clock)
-
-    angles =  find_angles(tips, center, clock.frame.x_val)
-    #for angle in angles:
-       #print(str(i) + ":\t" + str(angle))
-
-    hour, mintues = get_hour(angles)
-    print(str(hour)+":"+str(mintues))
-    print()
+    try:
+        angles =  find_angles(tips, center, clock.frame.x_val)
+        hour, mintues = get_hour(angles)
+        print(str(hour)+":"+str(mintues))
+        print()
+    except Exception as e:
+        print(e)
+        continue
+    
     
     clock.frame.paint(imgs[i])
     tips.paint(imgs[i])
