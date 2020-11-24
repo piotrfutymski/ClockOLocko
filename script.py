@@ -10,6 +10,7 @@ from numpy import array
 import scipy
 import math
 import copy
+import sys
 
 def paint_pixel(img, x, y, val):
     SE = point(len(img[0]), len(img))
@@ -330,60 +331,44 @@ def get_hour(angles):
         
 
 
-
-emgs=[]
-imgs=[]
-for i in range(1,19):
-    imgs.append(io.imread('data/' + str(i) + '.jpg', as_gray=True))
-    emgs.append(io.imread('data/' + str(i) + '.jpg', as_gray=True))
+# MAIN
 
 
-t = 0
-i = 0
-while i < (len(imgs)):
-    print('ZEGAR ' + str(i))
-    if(t == 0):
-        imgs[i]=feature.canny(emgs[i], 1, low_threshold = 0.18, high_threshold= 0.4)
-    else:
-        imgs[i]=feature.canny(emgs[i], 1, low_threshold = 0.11, high_threshold= 0.18)
-        t = 0
-
-    fig = plt.figure(figsize=(len(imgs[i][0])/100,len(imgs[i])/100))
-
-    shapes = find_consistent_shapes(imgs[i])
-    #do rgb
-    imgs[i] = [[(float(v),float(v),float(v)) for v in line]for line in imgs[i]]
-    try:
-        clock = find_clock(shapes)
-        tips = find_tips(shapes, clock)
-    except Exception as e:
-        print(e)
-        if(t == 0):
-            t = 1
+for i in range(1, len(sys.argv)):
+    print('ZEGAR ' + sys.argv[i])
+    img = io.imread(sys.argv[i], as_gray=True)
+    succes = False
+    state = 0
+    while(succes == False):        
+        emg = []
+        if(state == 0):
+            emg = feature.canny(img, 1, low_threshold = 0.18, high_threshold= 0.4)
         else:
-            t = 0
-            i = i+1
-        continue
-    center = find_center(tips, clock)
-    try:
-        angles =  find_angles(tips, center, clock.frame.x_val)
-        hour, mintues = get_hour(angles)
-        print(str(hour)+":"+str(mintues))
-        print()
-    except Exception as e:
-        print(e)
-        if(t == 0):
-            t = 1
-        else:
-            t = 0
-            i = i+1
-        continue
-    
-    
-    clock.frame.paint(imgs[i])
-    tips.paint(imgs[i])
-    center.paint(imgs[i])
+            emg = feature.canny(img, 1, low_threshold = 0.11, high_threshold= 0.18)
+        
+        fig = plt.figure(figsize=(len(emg[0])/100,len(emg)/100))
+        shapes = find_consistent_shapes(emg)
+        emg = [[(float(v),float(v),float(v)) for v in line]for line in emg]
+        try:
+            clock = find_clock(shapes)
+            tips = find_tips(shapes, clock)
+            center = find_center(tips, clock)
+            angles =  find_angles(tips, center, clock.frame.x_val)
+            hour, mintues = get_hour(angles)
+            print(str(hour)+":"+str(mintues))
+            clock.frame.paint(emg)
+            tips.paint(emg)
+            center.paint(emg)
 
-    imshow(imgs[i])
-    fig.savefig("result/" + str(i)+".png")
-    i = i+1
+            imshow(emg)
+            fig.savefig("result/" + str(i)+".png")
+            succes = True
+        except Exception as e:
+            print(e)
+            if(state == 0):
+                print("Ponawiam próbę")
+                state = 1
+            else:
+                print("Nie wykryto zegara, kończenie")
+                state = 0
+                succes = True
