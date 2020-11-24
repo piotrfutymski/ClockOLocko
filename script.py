@@ -1,12 +1,8 @@
 from skimage import io, feature
-from skimage.filters.edges import convolve
 import matplotlib.pyplot as plt
 from matplotlib.pyplot import imshow
 from skimage.transform import resize
-from skimage.transform import hough_line
-from skimage import morphology
 import numpy as np
-from numpy import array
 import scipy
 import math
 import copy
