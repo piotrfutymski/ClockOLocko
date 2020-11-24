@@ -331,16 +331,22 @@ def get_hour(angles):
 
 
 
+emgs=[]
 imgs=[]
 for i in range(1,19):
     imgs.append(io.imread('data/' + str(i) + '.jpg', as_gray=True))
+    emgs.append(io.imread('data/' + str(i) + '.jpg', as_gray=True))
 
 
-
-
-for i in range(len(imgs)):
+t = 0
+i = 0
+while i < (len(imgs)):
     print('ZEGAR ' + str(i))
-    imgs[i]=feature.canny(imgs[i], 1, low_threshold = 0.18, high_threshold= 0.4)
+    if(t == 0):
+        imgs[i]=feature.canny(emgs[i], 1, low_threshold = 0.18, high_threshold= 0.4)
+    else:
+        imgs[i]=feature.canny(emgs[i], 1, low_threshold = 0.11, high_threshold= 0.18)
+        t = 0
 
     fig = plt.figure(figsize=(len(imgs[i][0])/100,len(imgs[i])/100))
 
@@ -352,6 +358,11 @@ for i in range(len(imgs)):
         tips = find_tips(shapes, clock)
     except Exception as e:
         print(e)
+        if(t == 0):
+            t = 1
+        else:
+            t = 0
+            i = i+1
         continue
     center = find_center(tips, clock)
     try:
@@ -361,6 +372,11 @@ for i in range(len(imgs)):
         print()
     except Exception as e:
         print(e)
+        if(t == 0):
+            t = 1
+        else:
+            t = 0
+            i = i+1
         continue
     
     
@@ -370,3 +386,4 @@ for i in range(len(imgs)):
 
     imshow(imgs[i])
     fig.savefig("result/" + str(i)+".png")
+    i = i+1
