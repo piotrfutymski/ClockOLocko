@@ -196,31 +196,38 @@ def find_tips(shapes, clock):
     
 
 def find_center(tips, clock):
-    a = copy.deepcopy(clock.frame)
-    a.resize(0.3)
-    Xup = False
-    Xdw = False
-    Yup = False
-    Ydw = False
-    C = point()
-    D = 100000
-    for t in tips.points:
-        if(t.distance(a.center) < D):
-            D = t.distance(a.center)
-            C = t
-        if(a.contains(t)):
-            if(t.x > a.center.x):
-                Xup = True
-            else:
-                Xdw = True
-            if(t.y > a.center.y):
-                Yup = True
-            else:
-                Ydw = True
-    if(Xup and Xdw and Yup and Ydw):
-        return clock.frame.center
-    else:
-        return C
+    region = copy.deepcopy(clock.frame)
+    region.resize(0.3)
+
+    tips_center = [t for t in tips.points if region.contains(t)]
+    
+    current_approx = clock.frame.center
+    prev_approx= point()
+    prev_val=0
+    for t in tips_center:
+        w = (current_approx.x - t.x)
+        h = (current_approx.y - t.y)
+        prev_val += w*w + h*h
+    
+    while (current_approx.x != prev_approx.x) or (current_approx.y != prev_approx.y):
+        prev_approx = copy.deepcopy(current_approx)
+        for direction in (point(1,0), point(-1,0), point(0,1), point(0, -1)):
+            tmp =prev_approx
+            tmp.x = tmp.x + direction.x
+            tmp.y = tmp.y + direction.y
+            if(not region.contains(tmp)):
+                continue
+            current_val=0
+            for t in tips_center:
+                w = (tmp.x - t.x)
+                h = (tmp.y - t.y)
+                current_val = current_val + w*w + h*h
+            if(current_val < prev_val):
+                prev_val = current_val
+                current_approx = copy.deepcopy(tmp)
+    return current_approx
+        
+        
 
 
 def alfa_cp(C, P):
@@ -295,7 +302,7 @@ def get_hour(angles):
     
     di.sort(key= lambda el: el[0]+el[1])
     hours = int(angles[di[0][0]])
-    print(di[0][2])
+    #print(di[0][2])
     if( di[0][2] > 0.5):
         hours = hours + 1
     elif(di[0][2] < -0.5):
@@ -332,8 +339,8 @@ for i in range(len(imgs)):
     center = find_center(tips, clock)
 
     angles =  find_angles(tips, center, clock.frame.x_val)
-    for angle in angles:
-       print(str(i) + ":\t" + str(angle))
+    #for angle in angles:
+       #print(str(i) + ":\t" + str(angle))
 
     hour, mintues = get_hour(angles)
     print(str(hour)+":"+str(mintues))
