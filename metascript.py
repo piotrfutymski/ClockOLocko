@@ -13,31 +13,31 @@ def getQuality(times, params = [3.6, 1.59, 1.11, 1.6, 0.225, 0.9, 35, 120, 0.325
         hour, minutes = calculate_hour(img, params=params)
         #print(str(hour)+":"+str(minutes))
         if(hour == times[i][0] and abs(minutes - times[i][1])<=2):
-            v = v + 1
+            v = v + 1000 - abs(minutes - times[i][1])
     return v/len(times)
 
 times = []
 for line in io.open("data/info.txt", "r"):
     times.append(tuple(int(x) for x in line.split()))
 
-params = [3.6, 1.59, 1.11, 1.6, 0.225, 0.9, 35, 120, 0.325, 0.175, 0.21, 0.48]
-deltas = [0.2, 0.1, 0.1, 0.1, 0.02, 0.05, 3, 3, 0.02, 0.02, 0.01, 0.02]
-bests = []
+params = [4.3, 1.7, 1.09, 2.02, 0.24, 1.13, 35, 129, 0.375, 0.175, 0.21, 0.494]
+deltas = [0.05, 0.02, 0.02, 0.01, 0.005, 0.03, 1, 1, 0.01, 0.01, 0.001, 0.001]
+signs = [1, -1, -1, 1, 1, 1, -1, 1, 1, 1, 1, 1]
 
-old = getQuality(times)
+old = getQuality(times, params=params)
 
-for i in range (6, len(params)):
-    n = 5
-    maxi = old
-    for j in range(0,11):
-        if(j != 5):
-            value = params[i]+(j-5)*deltas[i]
-            testparams = copy.copy(params)
-            quality = getQuality(times, testparams)
-            print("Param no. " + str(i) + " test value: " + str(value) +"  result: "+str(quality))
-            if(quality > maxi):
-                n = j
-                maxi = quality
-    bests.append(params[i]+(n-5)*deltas[i])
 
-print(bests)
+while(True):
+    for i in range (0, len(params)):
+        if(i == 5 or i == 7):
+            continue
+        testparams = copy.copy(params)
+        testparams[i] = testparams[i] + deltas[i]*signs[i]
+        quality = getQuality(times, testparams)
+        if(quality >= old):
+            old = quality
+            params[i] = testparams[i]
+            print(params)
+            print(old)
+        else:
+            signs[i] = signs[i] * (-1)

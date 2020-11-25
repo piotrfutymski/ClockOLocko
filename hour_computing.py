@@ -306,7 +306,7 @@ def get_hour(angles, p0=3, p1=1.24, p2=0.76, p3=0.85):
     return di[0][0], di[0][1]
 
 
-def calculate_hour(img, params = [3.6, 1.59, 1.11, 1.6, 0.225, 0.9, 35, 120, 0.325, 0.175, 0.21, 0.48] ):
+def calculate_hour(img, params = [4.3, 1.7, 1.09, 2.02, 0.24, 1.13, 35, 129, 0.375, 0.175, 0.21, 0.494] ):
     state = 0
     while(True):
         emg = []
