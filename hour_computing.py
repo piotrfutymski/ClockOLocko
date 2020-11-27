@@ -180,37 +180,10 @@ def find_tips(shapes, clock, p0 = 0.175):
     else:
         raise Exception('Nie znaleziono wskazowek!')
     return tips
+    
 def find_center(tips, clock, p0 = 0.325):
-    region = copy.deepcopy(clock.frame)
-    region.resize(p0)
+    return clock.frame.center
 
-    tips_center = [t for t in tips.points if region.contains(t)]
-    
-    current_approx = clock.frame.center
-    prev_approx= point()
-    prev_val=0
-    for t in tips_center:
-        w = (current_approx.x - t.x)
-        h = (current_approx.y - t.y)
-        prev_val += w*w + h*h
-    
-    while (current_approx.x != prev_approx.x) or (current_approx.y != prev_approx.y):
-        prev_approx = copy.deepcopy(current_approx)
-        for direction in (point(1,0), point(-1,0), point(0,1), point(0, -1)):
-            tmp =prev_approx
-            tmp.x = tmp.x + direction.x
-            tmp.y = tmp.y + direction.y
-            if(not region.contains(tmp)):
-                continue
-            current_val=0
-            for t in tips_center:
-                w = (tmp.x - t.x)
-                h = (tmp.y - t.y)
-                current_val = current_val + w*w + h*h
-            if(current_val < prev_val):
-                prev_val = current_val
-                current_approx = copy.deepcopy(tmp)
-    return current_approx
 def alfa_cp(C, P):
     if(C.x == P.x):
         if(P.y > C.y):
@@ -233,7 +206,7 @@ def alfa_cp(C, P):
             return math.pi + math.atan(W/H)
         else:
             return 3*math.pi/2 + math.atan(H/W)
-def find_angles(tips, C, A, step = 3, p0 =0.22, p1=40):
+def find_angles(tips, C, A, step = 6, p0 =0.22, p1=35):
     di = {}
     angles = []
     for tt in range(0, 360, step):
@@ -266,7 +239,7 @@ def find_angles(tips, C, A, step = 3, p0 =0.22, p1=40):
         angles[i] = angles[i]/30
     return angles[0:min(len(angles),5)]
 
-def get_hour(angles, p0=4.3, p1=1.7, p2=1.09):
+def get_hour(angles, p0=4.6, p1=1.7, p2=1.09):
     di = []
 
     for i in range(len(angles)):
