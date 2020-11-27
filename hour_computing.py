@@ -167,7 +167,7 @@ def find_clock(shapes):
     if(len(result.points) == 0):
         raise Exception('Nie znaleziono tarczy!')
     return result
-def find_tips(shapes, clock, p0 = 0.25):
+def find_tips(shapes, clock, p0 = 0.175):
     tips = shape()
     a = copy.deepcopy(clock.frame)
     a.resize(p0)
@@ -180,7 +180,7 @@ def find_tips(shapes, clock, p0 = 0.25):
     else:
         raise Exception('Nie znaleziono wskazowek!')
     return tips
-def find_center(tips, clock, p0 = 0.35):
+def find_center(tips, clock, p0 = 0.325):
     region = copy.deepcopy(clock.frame)
     region.resize(p0)
 
@@ -233,7 +233,7 @@ def alfa_cp(C, P):
             return math.pi + math.atan(W/H)
         else:
             return 3*math.pi/2 + math.atan(H/W)
-def find_angles(tips, C, A, step = 3, p0 =0.2, p1 =0.5, p2=40, p3=80):
+def find_angles(tips, C, A, step = 3, p0 =0.22, p1=40):
     di = {}
     angles = []
     for tt in range(0, 360, step):
@@ -245,7 +245,7 @@ def find_angles(tips, C, A, step = 3, p0 =0.2, p1 =0.5, p2=40, p3=80):
             beta = abs(theta - alfa_cp(C, t))
             odl = C.distance(t)
             odch = abs(odl*math.sin(beta))          
-            if(beta < math.pi/2 and ((odl > A*p0 and odl <= A*p1 and odch < A/p2) or (odl > A*p1 and odch < A/p3))):
+            if(beta < math.pi/2 and (odl > A*p0  and odch < A/p1)):
                 di[tt] += 1
 
     last = -1
@@ -265,12 +265,8 @@ def find_angles(tips, C, A, step = 3, p0 =0.2, p1 =0.5, p2=40, p3=80):
     for i in range(min(len(angles),5)):
         angles[i] = angles[i]/30
     return angles[0:min(len(angles),5)]
-def existsD(di, h ,m, p0):
-    for el in di:
-        if(el[0] == h and el[1] == m):
-            return el[2]*p0
-    return -1
-def get_hour(angles, p0=3, p1=1.24, p2=0.76, p3=0.85):
+
+def get_hour(angles, p0=4.3, p1=1.7, p2=1.09):
     di = []
 
     for i in range(len(angles)):
@@ -290,13 +286,8 @@ def get_hour(angles, p0=3, p1=1.24, p2=0.76, p3=0.85):
                 hours = 11
             if(hours == 0):
                 hours = 12
-            minutes = int(angles[i]*5)
-
-            vv = existsD(di, hours, minutes, p3)
-            if(vv > 0):
-                di.append((hours, minutes, vv))
-            else:
-                di.append((hours, minutes, k))
+            minutes = int(angles[i]*5)         
+            di.append((hours, minutes, k))
     
     di.sort(key= lambda el: el[2])
 
@@ -306,21 +297,21 @@ def get_hour(angles, p0=3, p1=1.24, p2=0.76, p3=0.85):
     return di[0][0], di[0][1]
 
 
-def calculate_hour(img, params = [4.3, 1.7, 1.09, 2.02, 0.24, 1.13, 35, 129, 0.375, 0.175, 0.21, 0.494] ):
+def calculate_hour(img):
     state = 0
     while(True):
         emg = []
         if(state == 0):
-            emg = feature.canny(img, 1, low_threshold = params[10], high_threshold= params[11])
+            emg = feature.canny(img, 1, low_threshold = 0.21, high_threshold= 0.494)
         else:
             emg = feature.canny(img, 1, low_threshold = 0.11, high_threshold= 0.18)
         shapes = find_consistent_shapes(emg)        
         try:
             clock = find_clock(shapes)
-            tips = find_tips(shapes, clock, p0 = params[9])
-            center = find_center(tips, clock, p0 = params[8])
-            angles =  find_angles(tips, center, clock.frame.x_val, p0 =params[4], p1=params[5], p2=params[6],p3=params[7])
-            hour, mintues = get_hour(angles, p0 =params[0], p1=params[1], p2=params[2],p3=params[3])
+            tips = find_tips(shapes, clock)
+            center = find_center(tips, clock)
+            angles =  find_angles(tips, center, clock.frame.x_val)
+            hour, mintues = get_hour(angles)
             return hour, mintues
         except Exception as e:
             if(state == 0):

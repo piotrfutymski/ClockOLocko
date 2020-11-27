@@ -17,9 +17,9 @@ for i in range(1, len(sys.argv)):
     while(succes == False):        
         emg = []
         if(state == 0):
-            emg = feature.canny(img, 1, low_threshold = 0.18, high_threshold= 0.4)
+            emg = feature.canny(img, 1, low_threshold = 0.21, high_threshold= 0.45)
         else:
-            emg = feature.canny(img, 1, low_threshold = 0.11, high_threshold= 0.18)
+            emg = feature.canny(img, 1, low_threshold = 0.08, high_threshold= 0.15)
         
         fig = plt.figure(figsize=(len(emg[0])/100,len(emg)/100))
         shapes = hour_computing.find_consistent_shapes(emg)

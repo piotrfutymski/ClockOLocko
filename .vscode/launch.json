@@ -7,7 +7,7 @@
             "request": "launch",
             "program": "script.py",
             "console": "integratedTerminal",
-            "args": ["another/8.jpg"]
+            "args": ["data/28.jpg"]
         }
     ]
 }
