@@ -9,3 +9,5 @@ For expamle (need result dir for output)
 $ mkdir result
 $ python3 script.py data/1.jpg
 ```
+
+Status: end
